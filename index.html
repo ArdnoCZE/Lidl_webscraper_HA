@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lidl Price Scraper</title>
+<link rel="stylesheet" href="{{ base }}/static/style.css">
+</head>
+<body>
+<header>
+  <h1>🛠️ Lidl sledování cen &amp; letáku</h1>
+  <form method="post" action="{{ base }}/scrape/run">
+    <button type="submit" class="btn primary">Spustit scrape ručně</button>
+  </form>
+</header>
+
+<section class="card">
+  <h2>Sledované položky</h2>
+  <p class="hint">
+    Zadej klíčové slovo (např. „aku vrtačka“, „Parkside“, „benzínová sekačka“).
+    Zaškrtni, jestli se má hledat v e-shopu, v letáku, nebo v obojím.
+  </p>
+
+  <form method="post" action="{{ base }}/watch/add" class="add-form">
+    <input type="text" name="value" placeholder="např. aku vrtačka" list="suggestions" required>
+    <datalist id="suggestions">
+      {% for s in suggested %}<option value="{{ s }}">{% endfor %}
+    </datalist>
+    <input type="text" name="label" placeholder="Popisek (nepovinné)">
+    <label><input type="checkbox" name="watch_shop" value="true" checked> e-shop</label>
+    <label><input type="checkbox" name="watch_leaflet" value="true" checked> leták</label>
+    <button type="submit" class="btn">Přidat</button>
+  </form>
+
+  <table>
+    <thead><tr><th>Popisek</th><th>Hledaný text</th><th>e-shop</th><th>leták</th><th></th></tr></thead>
+    <tbody>
+    {% for item in items %}
+      <tr>
+        <td>{{ item.label }}</td>
+        <td>{{ item.value }}</td>
+        <td>{{ "✅" if item.watch_shop else "—" }}</td>
+        <td>{{ "✅" if item.watch_leaflet else "—" }}</td>
+        <td>
+          <form method="post" action="{{ base }}/watch/{{ item.id }}/delete" style="display:inline">
+            <button type="submit" class="btn small danger">Smazat</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5">Zatím nic nesleduješ. Přidej první položku výše.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card">
+  <h2>Ceny z e-shopu</h2>
+  <div class="grid">
+    {% for p in products %}
+      <div class="product">
+        {% if p.image_url %}<img src="{{ p.image_url }}" alt="">{% endif %}
+        <div class="name">{{ p.name }}</div>
+        <div class="price">{{ "%.2f"|format(p.latest_price) }} {{ p.currency }}</div>
+        {% if p.url %}<a href="{{ p.url }}" target="_blank" rel="noopener">otevřít na Lidl.cz</a>{% endif %}
+      </div>
+    {% else %}
+      <p>Zatím žádná data - počkej na první scrape, nebo ho spusť ručně.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card">
+  <h2>Shody v aktuálním letáku</h2>
+  <div class="grid">
+    {% for m in leaflet_matches %}
+      <div class="product">
+        {% if m.image_url %}<img src="{{ m.image_url }}" alt="" loading="lazy">{% endif %}
+        <div class="name">{{ m.watch_label or "?" }} — {{ m.flyer_name }}, str. {{ m.page_number }}</div>
+        <div class="hint">{{ m.matched_text }}</div>
+        <div class="hint">Platnost: {{ m.valid_from }} – {{ m.valid_to }}</div>
+      </div>
+    {% else %}
+      <p>V aktuálním letáku zatím nic nenalezeno.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<footer>
+  <p class="hint">
+    Data se automaticky posílají do Home Assistant přes MQTT discovery
+    (senzory <code>sensor.lidl_*</code> a <code>sensor.lidl_letak_shody</code>).
+  </p>
+</footer>
+</body>
+</html>
